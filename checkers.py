@@ -40,9 +40,11 @@ USERNAME_RE = re.compile(r"^[A-Za-z0-9._]{1,30}$")
 # mascarar o User-Agent para driblar proteções viola os termos das plataformas
 # e, na prática, só aumenta o bloqueio por rate limit.
 HEADERS = {
-    "User-Agent": "usercheck/1.0 (verificacao de handle)",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Cache-Control": "no-cache",
 }
 
 
@@ -162,6 +164,9 @@ def checar_instagram(usuario: str) -> Resultado:
     if resposta.status_code in (401, 403, 429):
         return Resultado("Instagram", INDETERMINADO, SEM_CONFIANCA, "", f"HTTP {resposta.status_code} — acesso restringido")
     if resposta.status_code == 200:
+        corpo = resposta.text.lower()
+        if "página não encontrada" in corpo or "perfil não encontrado" in corpo or "sorry, this page isn't available" in corpo:
+            return Resultado("Instagram", NAO_ENCONTRADO, PROVAVEL, "", "HTTP 200 com indicação de perfil inexistente no HTML")
         return Resultado(
             "Instagram",
             INDETERMINADO,
@@ -169,7 +174,6 @@ def checar_instagram(usuario: str) -> Resultado:
             link,
             "HTTP 200 — o Instagram serve a mesma página para perfis inexistentes; confirmação exige login ou API",
         )
-    return Resultado("Instagram", INDETERMINADO, SEM_CONFIANCA, "", f"HTTP {resposta.status_code} — resposta não conclusiva")
 
 
 # --------------------------------------------------------------------------- #
