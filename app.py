@@ -1,103 +1,85 @@
-"""Painel de busca de @usuario — Streamlit + X, Instagram e TikTok."""
-
-from __future__ import annotations
-
-import pandas as pd
 import streamlit as st
+import pandas as pd
+from checkers import buscar, normalizar
 
-from checkers import ENCONTRADO, buscar, normalizar, usuario_valido
+# Configuração da página
+st.set_page_config(page_title="Painel OSINT - Busca Avançada", page_icon="🔍", layout="wide")
 
-st.set_page_config(page_title="Busca de @usuario", page_icon="🔎", layout="centered")
+# Estilização customizada para parecer ferramenta de inteligência
+st.markdown("""
+    <style>
+    .main { background-color: #0e1117; color: #ffffff; }
+    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #262730; color: white; border: 1px solid #464b5d; }
+    .stButton>button:hover { border-color: #ff4b4b; color: #ff4b4b; }
+    .reportview-container { background-color: #0e1117; }
+    </style>
+    """, unsafe_allow_html=True)
 
+st.title("🔍 Orquestrador OSINT")
+st.subheader("Busca de Identidade e Reconhecimento Digital")
 
-@st.cache_data(ttl=300, show_spinner=False)
-def buscar_com_cache(usuario: str) -> list[dict]:
-    """Evita repetir requisições para o mesmo handle por 5 minutos."""
-    return buscar(usuario)
+# Criação de abas para separar as funções
+tab1, tab2 = st.tabs(["👤 Busca por Username", "🖼️ Busca por Imagem"])
 
+with tab1:
+    st.markdown("### Localizador de Perfis")
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        alvo = st.text_input("Digite o @usuario ou handle:", placeholder="ex: nsnns8943")
+    
+    with col2:
+        st.write(" ") # Espaçador
+        btn_buscar = st.button("Rastrear")
 
-st.title("🔎 Painel de busca de @usuario")
-st.caption("Consulta o mesmo handle em X, Instagram e TikTok.")
+    if btn_buscar and alvo:
+        with st.spinner(f"Varrendo redes sociais para {alvo}..."):
+            alvo_norm = normalizar(alvo)
+            resultados = buscar(alvo_norm)
+            df = pd.DataFrame(resultados)
+            
+            # Organiza as colunas para ficar limpo
+            df = df[["plataforma", "status", "confianca", "link"]]
+            df.columns = ["Plataforma", "Status", "Confiança", "Link"]
+            
+            st.dataframe(df, use_container_width=True)
+    elif btn_buscar and not alvo:
+        st.warning("Por favor, insira um username.")
 
-with st.form("form_busca"):
-    entrada = st.text_input(
-        "Usuário",
-        placeholder="@usuario",
-        help="Aceita @usuario, usuario ou a URL completa do perfil.",
-    )
-    enviado = st.form_submit_button("Pesquisar", type="primary")
+with tab2:
+    st.markdown("### Reconhecimento Facial e Busca Reversa")
+    st.info("Envie a foto do alvo para gerar gatilhos de busca nos motores de reconhecimento facial do mundo.")
+    
+    foto = st.file_uploader("Upload da foto do alvo", type=["jpg", "jpeg", "png", "webp"])
+    
+    if foto:
+        st.image(foto, caption="Foto carregada para análise", width=300)
+        
+        # Como não temos servidor de storage próprio, vamos simular a ponte de URL
+        # Em um cenário real, subiríamos para um S3 ou Imgur API
+        st.markdown("---")
+        st.markdown("#### 🚀 Gatilhos de Busca Profunda")
+        st.write("Clique nos botões abaixo para disparar a busca da imagem nos motores de IA:")
+        
+        # Aqui está o "pulo do gato": 
+        # Como o navegador não deixa enviar o arquivo direto via URL, 
+        # orientamos o usuário a usar a URL da imagem ou usamos a técnica de upload via link.
+        
+        col_a, col_b, col_c = st.columns(3)
+        
+        with col_a:
+            st.markdown("**Google Lens**")
+            st.markdown("[🔍 Iniciar Busca](https://lens.google.com/upload)")
+            st.caption("Melhor para objetos e locais.")
+            
+        with col_b:
+            st.markdown("**Yandex Visual**")
+            st.markdown("[🔍 Iniciar Busca](https://yandex.com/images/search?rpt=imageview)")
+            st.caption("O mais forte para rostos (Rússia).")
+            
+        with col_c:
+            st.markdown("**Bing Visual**")
+            st.markdown("[🔍 Iniciar Busca](https://www.bing.com/visualsearch)")
+            st.caption("Excelente para perfis sociais.")
 
-if enviado:
-    alvo = normalizar(entrada)
-    if not alvo:
-        st.session_state.pop("usuario", None)
-        st.warning("Digite um @usuario para pesquisar.")
-    elif not usuario_valido(alvo):
-        st.session_state.pop("usuario", None)
-        st.error("Handle inválido. Use de 1 a 30 caracteres: letras, números, ponto ou sublinhado.")
-    else:
-        st.session_state["usuario"] = alvo
-
-usuario = st.session_state.get("usuario")
-
-if usuario:
-    st.markdown(f"Handle pesquisado: `@{usuario}`")
-
-    with st.spinner("Consultando as plataformas..."):
-        linhas = buscar_com_cache(usuario)
-
-    df = pd.DataFrame(linhas)
-    df = df.rename(
-        columns={
-            "plataforma": "Plataforma",
-            "status": "Status",
-            "confianca": "Confiança",
-            "link": "Link",
-            "detalhe": "Detalhe",
-        }
-    )
-
-    st.dataframe(
-        df,
-        hide_index=True,
-        column_config={
-            "Plataforma": st.column_config.TextColumn(width="small"),
-            "Status": st.column_config.TextColumn(width="small"),
-            "Confiança": st.column_config.TextColumn(width="small"),
-            "Link": st.column_config.LinkColumn(
-                "Link",
-                display_text=r"^https?://[^/]+/(?:@)?([^/?#]+)/?$",
-            ),
-            "Detalhe": st.column_config.TextColumn(width="large"),
-        },
-    )
-
-    encontrados = int((df["Status"] == ENCONTRADO).sum())
-    confirmados = int((df["Confiança"] == "confirmado").sum())
-    st.success(
-        f"{encontrados} de {len(df)} plataformas com perfil detectado "
-        f"({confirmados} com confirmação oficial)."
-    )
-
-    st.download_button(
-        "Baixar resultado em CSV",
-        data=df.to_csv(index=False).encode("utf-8"),
-        file_name=f"busca_{usuario}.csv",
-        mime="text/csv",
-    )
-
-with st.expander("Como interpretar o resultado"):
-    st.markdown(
-        """
-- **encontrado + confirmado** — a plataforma respondeu de forma inequívoca (ou a API oficial confirmou).
-- **encontrado + provável** — a página respondeu como perfil existente, mas pode ser desafio anti-bot. Vale abrir o link.
-- **indeterminado** — a plataforma respondeu 200 para qualquer handle ou exigiu login. Não é possível afirmar nada sem autenticação.
-- **não encontrado** — retorno 404, ou página de "conta não encontrada".
-
-X e Instagram só entregam resposta conclusiva via API oficial. Sem token,
-o painel mostra `indeterminado` de propósito, em vez de inventar um link.
-"""
-    )
-
-st.divider()
-st.caption("Resultados são indicativos: confirme no navegador antes de usar a informação.")
+        st.warning("⚠️ Nota: Devido a restrições de segurança dos navegadores, você deve arrastar a foto carregada acima para dentro da página de busca aberta.")
