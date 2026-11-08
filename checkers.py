@@ -177,7 +177,18 @@ def buscar(usuario: str) -> list[dict]:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        sys.exit("uso: python checkers.py <usuario>")
-    alvo = normalizar(sys.argv[1])
-    for linha in buscar(alvo):
+        sys.exit("uso: python checkers.py <usuario_ou_url_da_foto>")
+    
+    alvo = sys.argv[1]
+    
+    # Se for URL de imagem, faz busca reversa
+    if alvo.startswith("http") and any(alvo.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".webp"]):
+        print(f"\n[!] URL de imagem detectada. Gerando links de busca reversa:\n")
+        print(f"Google Lens: https://lens.google.com/upload?url={alvo}")
+        print(f"Yandex Images: https://yandex.com/images/search?rpt=imageview&url={alvo}")
+        print(f"Bing Visual: https://www.bing.com/visualsearch?url={alvo}")
+        sys.exit(0)
+
+    alvo_norm = normalizar(alvo)
+    for linha in buscar(alvo_norm):
         print(f"{linha['plataforma']:<12} {linha['status']:<15} {linha['confianca']:<12} {linha['link']}")
